@@ -1,0 +1,19 @@
+{
+  "name": "playwright-mcp-project",
+  "version": "1.0.0",
+  "description": "A project to demonstrate Playwright MCP server usage.",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:ci": "playwright test --reporter=html,junit"
+  },
+  "dependencies": {
+    "playwright": "^1.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "junit-report-merger": "^6.0.0"
+  },
+  "author": "Your Name",
+  "license": "MIT"
+}
