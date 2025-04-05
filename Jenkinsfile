@@ -5,6 +5,10 @@ pipeline {
         nodejs 'Node.js 20.x'
     }
 
+    options {
+        ansiColor('xterm')
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -14,28 +18,42 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm ci'
-                sh 'npx playwright install --with-deps chromium'
+                script {
+                    sh 'npm ci'
+                    sh 'npx playwright install --with-deps chromium'
+                }
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'npx playwright test --reporter=html,junit'
+                script {
+                    sh 'npx playwright test --reporter=html,junit'
+                }
             }
             post {
                 always {
-                    junit 'test-results/junit.xml'
-                    publishHTML(target: [
-                        allowMissing: false,
+                    junit(
+                        allowEmptyResults: true,
+                        testResults: 'test-results/junit.xml'
+                    )
+                    publishHTML([
+                        allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
                         reportDir: 'playwright-report',
                         reportFiles: 'index.html',
-                        reportName: 'Playwright Report'
+                        reportName: 'Playwright Report',
+                        reportTitles: 'Playwright Test Results'
                     ])
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
