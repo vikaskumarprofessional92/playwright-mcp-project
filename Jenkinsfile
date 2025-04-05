@@ -57,31 +57,28 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
-                    sh '''
-                        # Load nvm and use the specified Node.js version
-                        . "$NVM_DIR/nvm.sh"
-                        nvm use ${NODE_VERSION}
+                    try {
+                        sh '''
+                            # Load nvm and use the specified Node.js version
+                            . "$NVM_DIR/nvm.sh"
+                            nvm use ${NODE_VERSION}
+                            
+                            # Run tests
+                            npx playwright test --reporter=html,junit
+                        '''
+                    } finally {
+                        // Archive the test results
+                        junit(
+                            allowEmptyResults: true,
+                            testResults: 'test-results/junit.xml'
+                        )
                         
-                        # Run tests
-                        npx playwright test --reporter=html,junit
-                    '''
-                }
-            }
-            post {
-                always {
-                    junit(
-                        allowEmptyResults: true,
-                        testResults: 'test-results/junit.xml'
-                    )
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'playwright-report',
-                        reportFiles: 'index.html',
-                        reportName: 'Playwright Report',
-                        reportTitles: 'Playwright Test Results'
-                    ])
+                        // Archive the HTML report
+                        archiveArtifacts(
+                            artifacts: 'playwright-report/**/*',
+                            allowEmptyArchive: true
+                        )
+                    }
                 }
             }
         }
