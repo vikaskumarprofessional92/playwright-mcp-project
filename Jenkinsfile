@@ -129,42 +129,44 @@ pipeline {
 
     post {
         always {
-            // Clean up Docker resources
-            script {
-                sh 'docker-compose down --remove-orphans --volumes'
-                
-                def color = currentBuild.currentResult == 'SUCCESS' ? 'good' : 'danger'
-                def message = """
-                    *${currentBuild.fullDisplayName}*
-                    Status: ${currentBuild.currentResult}
-                    Duration: ${currentBuild.durationString}
-                    Build URL: ${BUILD_URL}
-                    Test Report: ${BUILD_URL}testReport/
-                """.stripIndent()
+            node('any') {  // Wrap post actions in a node block
+                script {
+                    // Clean up Docker resources
+                    sh 'docker-compose down --remove-orphans --volumes'
+                    
+                    def color = currentBuild.currentResult == 'SUCCESS' ? 'good' : 'danger'
+                    def message = """
+                        *${currentBuild.fullDisplayName}*
+                        Status: ${currentBuild.currentResult}
+                        Duration: ${currentBuild.durationString}
+                        Build URL: ${BUILD_URL}
+                        Test Report: ${BUILD_URL}testReport/
+                    """.stripIndent()
 
-                // Use credential binding for Slack
-                withCredentials([string(credentialsId: 'slack-token', variable: 'SLACK_TOKEN')]) {
-                    slackSend(
-                        channel: env.SLACK_CHANNEL,
-                        color: color,
-                        message: message,
-                        tokenCredentialId: 'slack-token'
+                    // Use credential binding for Slack
+                    withCredentials([string(credentialsId: 'slack-token', variable: 'SLACK_TOKEN')]) {
+                        slackSend(
+                            channel: env.SLACK_CHANNEL,
+                            color: color,
+                            message: message,
+                            tokenCredentialId: 'slack-token'
+                        )
+                    }
+
+                    // Use credential binding for email
+                    emailext (
+                        to: env.EMAIL_RECIPIENTS,
+                        subject: "${currentBuild.currentResult}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                        body: """<p>Test Status: ${currentBuild.currentResult}</p>
+                            <p>Job: ${env.JOB_NAME} [${env.BUILD_NUMBER}]</p>
+                            <p>View detailed results: 
+                            <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>""",
+                        recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                        mimeType: 'text/html'
                     )
                 }
-
-                // Use credential binding for email
-                emailext (
-                    to: env.EMAIL_RECIPIENTS,
-                    subject: "${currentBuild.currentResult}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                    body: """<p>Test Status: ${currentBuild.currentResult}</p>
-                        <p>Job: ${env.JOB_NAME} [${env.BUILD_NUMBER}]</p>
-                        <p>View detailed results: 
-                        <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>""",
-                    recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                    mimeType: 'text/html'
-                )
+                cleanWs()
             }
-            cleanWs()
         }
     }
 }
