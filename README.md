@@ -1,6 +1,6 @@
 # Playwright MCP Project
 
-This project is set up to use Playwright with the MCP server for automated browser testing.
+A project to demonstrate Playwright MCP server usage with Jenkins pipeline.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This project is set up to use Playwright with the MCP server for automated brows
 
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/vikaskumarprofessional92/playwright-mcp-project.git
    cd playwright-mcp-project
    ```
 
@@ -46,6 +46,13 @@ npx playwright test
 ## Test Specifications
 
 The test specifications can be found in the `src/tests/example.spec.ts` file. This file contains a test suite that includes a test case for opening a browser and navigating to the Google.ca website.
+
+## Jenkins Integration
+
+This project includes Jenkins pipeline configuration for continuous integration. The pipeline is configured to:
+- Install dependencies
+- Run tests
+- Generate and publish test reports
 
 ## License
 
