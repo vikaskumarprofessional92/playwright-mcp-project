@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Service for running all tests
+  test:
+    build: .
+    volumes:
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      - CI=true
+
+  # Service for API tests only
+  api-tests:
+    build: .
+    command: npx playwright test --project=api-tests
+    volumes:
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      - CI=true
+
+  # Service for browser tests
+  browser-tests:
+    build: .
+    command: npx playwright test --project=chrome --project=firefox --project=webkit
+    volumes:
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      - CI=true
+
+  # Service for mobile browser tests
+  mobile-tests:
+    build: .
+    command: npx playwright test --project=mobile-chrome --project=mobile-safari
+    volumes:
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      - CI=true

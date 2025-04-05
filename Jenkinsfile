@@ -15,8 +15,8 @@ pipeline {
     }
 
     environment {
-        NODE_VERSION = '20.11.1'
-        NVM_DIR = "${env.HOME}/.nvm"
+        DOCKER_BUILDKIT = '1'
+        COMPOSE_PROJECT_NAME = "${JOB_NAME}-${BUILD_NUMBER}"
         SLACK_CHANNEL = '#test-automation'
         EMAIL_RECIPIENTS = 'team@company.com'
         // Use credentials
@@ -31,33 +31,10 @@ pipeline {
             }
         }
 
-        stage('Setup Node.js') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    sh '''
-                        if [ ! -d "$NVM_DIR" ]; then
-                            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-                        fi
-                        . "$NVM_DIR/nvm.sh"
-                        nvm install ${NODE_VERSION}
-                        nvm use ${NODE_VERSION}
-                        node --version
-                        npm --version
-                    '''
-                }
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                script {
-                    sh '''
-                        . "$NVM_DIR/nvm.sh"
-                        nvm use ${NODE_VERSION}
-                        npm ci
-                        # Install all required browsers
-                        npx playwright install --with-deps chromium firefox webkit
-                    '''
+                    sh 'docker-compose build'
                 }
             }
         }
@@ -68,11 +45,7 @@ pipeline {
                     steps {
                         script {
                             try {
-                                sh '''
-                                    . "$NVM_DIR/nvm.sh"
-                                    nvm use ${NODE_VERSION}
-                                    npx playwright test --project=api-tests
-                                '''
+                                sh 'docker-compose run --rm api-tests'
                             } finally {
                                 junit(
                                     allowEmptyResults: true,
@@ -83,104 +56,31 @@ pipeline {
                     }
                 }
                 
-                stage('Desktop Browser Tests') {
-                    parallel {
-                        stage('Chrome Tests') {
-                            steps {
-                                script {
-                                    try {
-                                        sh '''
-                                            . "$NVM_DIR/nvm.sh"
-                                            nvm use ${NODE_VERSION}
-                                            npx playwright test --project=chrome
-                                        '''
-                                    } finally {
-                                        junit(
-                                            allowEmptyResults: true,
-                                            testResults: '**/test-results/chrome/junit-*.xml'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        stage('Firefox Tests') {
-                            steps {
-                                script {
-                                    try {
-                                        sh '''
-                                            . "$NVM_DIR/nvm.sh"
-                                            nvm use ${NODE_VERSION}
-                                            npx playwright test --project=firefox
-                                        '''
-                                    } finally {
-                                        junit(
-                                            allowEmptyResults: true,
-                                            testResults: '**/test-results/firefox/junit-*.xml'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        stage('Safari Tests') {
-                            steps {
-                                script {
-                                    try {
-                                        sh '''
-                                            . "$NVM_DIR/nvm.sh"
-                                            nvm use ${NODE_VERSION}
-                                            npx playwright test --project=webkit
-                                        '''
-                                    } finally {
-                                        junit(
-                                            allowEmptyResults: true,
-                                            testResults: '**/test-results/webkit/junit-*.xml'
-                                        )
-                                    }
-                                }
+                stage('Browser Tests') {
+                    steps {
+                        script {
+                            try {
+                                sh 'docker-compose run --rm browser-tests'
+                            } finally {
+                                junit(
+                                    allowEmptyResults: true,
+                                    testResults: '**/test-results/**/junit-*.xml'
+                                )
                             }
                         }
                     }
                 }
                 
-                stage('Mobile Browser Tests') {
-                    parallel {
-                        stage('Mobile Chrome Tests') {
-                            steps {
-                                script {
-                                    try {
-                                        sh '''
-                                            . "$NVM_DIR/nvm.sh"
-                                            nvm use ${NODE_VERSION}
-                                            npx playwright test --project=mobile-chrome
-                                        '''
-                                    } finally {
-                                        junit(
-                                            allowEmptyResults: true,
-                                            testResults: '**/test-results/mobile-chrome/junit-*.xml'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        stage('Mobile Safari Tests') {
-                            steps {
-                                script {
-                                    try {
-                                        sh '''
-                                            . "$NVM_DIR/nvm.sh"
-                                            nvm use ${NODE_VERSION}
-                                            npx playwright test --project=mobile-safari
-                                        '''
-                                    } finally {
-                                        junit(
-                                            allowEmptyResults: true,
-                                            testResults: '**/test-results/mobile-safari/junit-*.xml'
-                                        )
-                                    }
-                                }
+                stage('Mobile Tests') {
+                    steps {
+                        script {
+                            try {
+                                sh 'docker-compose run --rm mobile-tests'
+                            } finally {
+                                junit(
+                                    allowEmptyResults: true,
+                                    testResults: '**/test-results/**/junit-*.xml'
+                                )
                             }
                         }
                     }
@@ -192,49 +92,10 @@ pipeline {
                     archiveArtifacts(
                         artifacts: '''
                             playwright-report/**/*,
-                            test-results/**/*,
-                            test-results/trace.zip
+                            test-results/**/*
                         ''',
                         allowEmptyArchive: true
                     )
-                }
-                success {
-                    script {
-                        if (currentBuild.previousBuild?.result == 'FAILURE') {
-                            emailext(
-                                subject: "✅ Tests Fixed: ${currentBuild.fullDisplayName}",
-                                body: "All tests have passed after previous failure.\nBuild URL: ${BUILD_URL}",
-                                recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                                to: env.EMAIL_RECIPIENTS
-                            )
-                        }
-                    }
-                }
-                failure {
-                    script {
-                        emailext(
-                            subject: "❌ Test Failure: ${currentBuild.fullDisplayName}",
-                            body: """Test execution failed!
-                                |Failed Stage: ${STAGE_NAME}
-                                |Build URL: ${BUILD_URL}
-                                |Console Output: ${BUILD_URL}console
-                                |Test Report: ${BUILD_URL}testReport/""".stripMargin(),
-                            recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                            to: env.EMAIL_RECIPIENTS
-                        )
-                    }
-                }
-                unstable {
-                    script {
-                        emailext(
-                            subject: "⚠️ Unstable Tests: ${currentBuild.fullDisplayName}",
-                            body: """Test execution is unstable!
-                                |Build URL: ${BUILD_URL}
-                                |Test Report: ${BUILD_URL}testReport/""".stripMargin(),
-                            recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                            to: env.EMAIL_RECIPIENTS
-                        )
-                    }
                 }
             }
         }
@@ -268,8 +129,10 @@ pipeline {
 
     post {
         always {
-            // Send Slack notification
+            // Clean up Docker resources
             script {
+                sh 'docker-compose down --remove-orphans --volumes'
+                
                 def color = currentBuild.currentResult == 'SUCCESS' ? 'good' : 'danger'
                 def message = """
                     *${currentBuild.fullDisplayName}*
