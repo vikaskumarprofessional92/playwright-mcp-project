@@ -1,4 +1,8 @@
-FROM mcr.microsoft.com/playwright:v1.51.1-focal
+# Use the Playwright image version specified in package.json
+FROM mcr.microsoft.com/playwright:v1.51.1-jammy
+
+# Install Chromium browser (which has ARM support)
+RUN apt-get update && apt-get install -y chromium-browser
 
 # Set working directory
 WORKDIR /app

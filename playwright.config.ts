@@ -20,11 +20,11 @@ export default defineConfig({
       workers: 3, // Run API tests with 3 workers
     },
     {
-      name: 'chrome',
+      name: 'chromium', // Changed from 'chrome' to 'chromium'
       testMatch: /.*example\.spec\.ts/,
       use: {
         browserName: 'chromium',
-        channel: 'chrome',
+        // Removed channel: 'chrome' to use default Chromium
         viewport: { width: 1280, height: 720 },
         screenshot: 'only-on-failure',
         trace: 'retain-on-failure',
