@@ -1,18 +1,20 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs 'Node.js 20.x'
-    }
-
-    options {
-        ansiColor('xterm')
-    }
-
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Setup Node.js') {
+            steps {
+                script {
+                    // Use shell commands to ensure Node.js is available
+                    sh 'node --version'
+                    sh 'npm --version'
+                }
             }
         }
 
